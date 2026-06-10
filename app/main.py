@@ -12,6 +12,9 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
 
+# Force l'utilisation d'un dossier de cache local au projet pour éviter de tout perdre au redémarrage
+CACHE_DIR = os.path.join(os.path.dirname(__file__), "model_cache")
+
 app = FastAPI()
 
 
@@ -19,11 +22,12 @@ app = FastAPI()
 def load_model(pair: str):
     """Load the translation model for the given language pair. The model is cached to improve performance on subsequent requests."""
     model_name = "EPL-TL26/translation"
+    # L'argument cache_dir garantit qu'on lit les fichiers pré-téléchargés au build
     tokenizer = AutoTokenizer.from_pretrained(
-        model_name, subfolder=pair, token=HF_TOKEN
+        model_name, subfolder=pair, token=HF_TOKEN, cache_dir=CACHE_DIR
     )
     model = AutoModelForSeq2SeqLM.from_pretrained(
-        model_name, subfolder=pair, token=HF_TOKEN
+        model_name, subfolder=pair, token=HF_TOKEN, cache_dir=CACHE_DIR
     )
     return tokenizer, model
 
@@ -44,3 +48,9 @@ def translate(pair: str, req: TranslationRequest):
     translated = model.generate(**inputs)
     result = tokenizer.decode(translated[0], skip_special_tokens=True)
     return {"translation": result}
+
+
+@app.get("/ping")
+def ping():
+    """Endpoint used by external ping services to prevent Render from sleeping."""
+    return {"status": "alive"}
